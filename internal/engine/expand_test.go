@@ -2,6 +2,7 @@ package engine
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -68,10 +69,13 @@ func TestDetectInIsolatedHomeKeepsVarsUnderHome(t *testing.T) {
 			t.Errorf("隔离 home 下仍指向真实环境变量给出的位置：%+v", e)
 		}
 	}
-	// 隔离后 %APPDATA%/<agent>/config.json 与 %XIMO_HOME%/config.json 必须指向同一处
-	// （XIMO_HOME 是 agent 自己的 BaseDir 开关，隔离后落在隔离 home 下的同一位置）。
-	if isolated[0].Resolved != isolated[1].Resolved {
-		t.Errorf("隔离后两个变量应指向同一配置路径：%q vs %q", isolated[0].Resolved, isolated[1].Resolved)
+	// 是否「指向同一处」取决于平台，不能无条件断言：
+	//   Windows：ximo-agent 的 BaseDir 就是 %APPDATA%\ximo-agent，两者一致；
+	//   Linux/macOS：BaseDir 走 XDG / ~/Library 约定（见 spec.agentBaseDirIn），
+	//   与 %APPDATA% 天然不是同一路径 —— 这是有意行为，不是缺陷。
+	// 两个平台都成立的不变量是「都在隔离 home 之下」，上面已经断言。
+	if runtime.GOOS == "windows" && isolated[0].Resolved != isolated[1].Resolved {
+		t.Errorf("Windows 上隔离后两者应指向同一配置路径：%q vs %q", isolated[0].Resolved, isolated[1].Resolved)
 	}
 
 	// 反向控制：没显式给 --home 时必须尊重真实环境里的 %XIMO_HOME% / %APPDATA%。
