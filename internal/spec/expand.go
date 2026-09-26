@@ -63,11 +63,16 @@ func isolatedEnv(home string) map[string]string {
 		// XIMO_HOME 是 ximo-agent 自己的 BaseDir 开关：隔离后它指向隔离 home 下
 		// 的同一位置（布局规则见 agentBaseDirIn）。
 		"XIMO_HOME": agentBaseDirIn(home),
+		// Windows 风格的两个变量**在任何平台都给**：规格 JSON 是跨平台共享的数据，
+		// 一份写成 %APPDATA%/... 的路径在隔离模式下必须同样落在隔离 home 里。
+		// 若按平台裁剪（只在 windows 给），Linux/macOS 上的 --home 会「逃逸」到真实
+		// 环境——这正是 CI（ubuntu-latest）实测到的失败：证据解析回了真实的 AppData。
+		"APPDATA":      filepath.Join(home, "AppData", "Roaming"),
+		"LOCALAPPDATA": filepath.Join(home, "AppData", "Local"),
 	}
 	switch runtime.GOOS {
 	case "windows":
-		m["APPDATA"] = filepath.Join(home, "AppData", "Roaming")
-		m["LOCALAPPDATA"] = filepath.Join(home, "AppData", "Local")
+		// 上面已给出，无需额外处理。
 	case "darwin":
 		// macOS 的规格路径本来就写成 ~/Library/Application Support/...，靠 ~ 展开
 		// 即可；真实 macOS 上没有 XDG_CONFIG_HOME，这里也不凭空造一个。
